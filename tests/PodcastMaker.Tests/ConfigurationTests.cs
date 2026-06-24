@@ -1,3 +1,4 @@
+using Xunit;
 using PodcastMaker.Core.Configuration;
 
 namespace PodcastMaker.Tests;
