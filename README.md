@@ -951,3 +951,38 @@ This will quickly reveal whether the app can generate engaging long-form discuss
 The final version should feel like a local AI podcast studio.
 
 The user gives the app a topic, chooses the hosts, chooses the style, and receives a polished transcript or finished audio episode. The strongest version is not just a chatbot. It is a content generation studio for long-form AI dialogue.
+
+## 14. Development Commands
+
+### Backend
+
+From the repository root:
+
+```bash
+dotnet restore PodcastMaker.sln
+dotnet build PodcastMaker.sln
+dotnet test PodcastMaker.sln
+dotnet run --project src/PodcastMaker.Api
+```
+
+The API exposes:
+
+* `GET /api/health` for application health.
+* `GET /api/health/ollama` for Ollama connectivity.
+* `GET /api/config` for safe development configuration values.
+
+### Frontend
+
+From `src/PodcastMaker.Web`:
+
+```bash
+npm install
+npm start
+npm run build
+```
+
+The Angular shell reads its API base URL from `src/environments/environment.ts` and displays the API health response on the landing page.
+
+### Formatting
+
+The repository uses `.editorconfig` for shared C# and TypeScript formatting defaults. Use your IDE's EditorConfig support or the relevant framework formatter before committing changes.

@@ -141,3 +141,20 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# .NET
+bin/
+obj/
+.vs/
+TestResults/
+*.user
+*.suo
+
+# Angular
+node_modules/
+dist/
+.angular/
+
+# PodcastMaker local artifacts
+projects/
+data/
