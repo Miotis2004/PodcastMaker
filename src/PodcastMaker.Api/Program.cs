@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using PodcastMaker.Core.Configuration;
 using PodcastMaker.Core.Health;
+using PodcastMaker.Core.DependencyInjection;
 using PodcastMaker.Infrastructure.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,12 +15,15 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.Configure<PodcastMakerOptions>(builder.Configuration.GetSection(PodcastMakerOptions.SectionName));
-builder.Services.AddPodcastMakerInfrastructure(builder.Configuration);
+builder.Services.AddCoreServices();
+builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddHealthChecks();
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
 app.UseCors();
+app.MapControllers();
 app.MapHealthChecks("/health");
 
 var api = app.MapGroup("/api");

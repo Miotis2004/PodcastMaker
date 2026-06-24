@@ -1,22 +1,25 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using PodcastMaker.Core.Configuration;
+using Microsoft.Extensions.Configuration;
 using PodcastMaker.Core.Health;
 using PodcastMaker.Infrastructure.Ollama;
+using PodcastMaker.Core.Interfaces;
+using PodcastMaker.Infrastructure.Storage;
 
 namespace PodcastMaker.Infrastructure.DependencyInjection;
 
 public static class InfrastructureServiceCollectionExtensions
 {
-    public static IServiceCollection AddPodcastMakerInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
-        var options = configuration.GetSection(PodcastMakerOptions.SectionName).Get<PodcastMakerOptions>() ?? new PodcastMakerOptions();
-
         services.AddHttpClient<IOllamaHealthClient, OllamaHealthClient>(client =>
         {
-            client.BaseAddress = options.OllamaUrl;
-            client.Timeout = TimeSpan.FromSeconds(5);
+            var url = configuration["Ollama:Url"] ?? "http://localhost:11434";
+            client.BaseAddress = new System.Uri(url);
         });
+
+        services.AddHttpClient<IOllamaClient, OllamaClient>();
+
+        services.AddSingleton<IProjectStorage, ProjectStorageService>();
 
         return services;
     }
