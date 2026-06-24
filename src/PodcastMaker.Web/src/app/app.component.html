@@ -1,0 +1,16 @@
+<main class="shell">
+  <section class="hero">
+    <p class="eyebrow">DialogCast foundation</p>
+    <h1>PodcastMaker</h1>
+    <p>
+      Local-first AI podcast studio foundation with an ASP.NET Core API, Angular shell,
+      and replaceable engine boundaries for Ollama, storage, TTS, audio, and exports.
+    </p>
+  </section>
+
+  <section class="status-card">
+    <h2>API health</h2>
+    <p>{{ healthStatus$ | async }}</p>
+    <small>Configured API base URL: {{ apiBaseUrl }}</small>
+  </section>
+</main>
