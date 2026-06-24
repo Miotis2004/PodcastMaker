@@ -1,28 +1,26 @@
-import { AsyncPipe } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
-import { Component, inject } from '@angular/core';
-import { catchError, map, of, startWith } from 'rxjs';
-import { environment } from '../environments/environment';
-
-interface ApiHealthResponse {
-  status: string;
-  service: string;
-  timestamp: string;
-}
+import { Component } from '@angular/core';
+import { RouterOutlet, RouterLink } from '@angular/router';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatButtonModule } from '@angular/material/button';
 
 @Component({
   selector: 'app-root',
-  imports: [AsyncPipe],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.scss'
+  standalone: true,
+  imports: [RouterOutlet, MatToolbarModule, MatButtonModule, RouterLink],
+  template: `
+    <mat-toolbar color="primary">
+      <span>PodcastMaker Studio</span>
+      <span class="spacer"></span>
+      <button mat-button routerLink="/projects">Library</button>
+      <button mat-raised-button color="accent" routerLink="/new">New Episode</button>
+    </mat-toolbar>
+    <main class="content-wrapper">
+      <router-outlet></router-outlet>
+    </main>
+  `,
+  styles: [`
+    .spacer { flex: 1 1 auto; }
+    .content-wrapper { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+  `]
 })
-export class AppComponent {
-  private readonly http = inject(HttpClient);
-
-  protected readonly apiBaseUrl = environment.apiBaseUrl;
-  protected readonly healthStatus$ = this.http.get<ApiHealthResponse>(`${this.apiBaseUrl}/health`).pipe(
-    map((response) => `${response.service} is ${response.status}`),
-    startWith('Checking API health...'),
-    catchError(() => of('API health check unavailable. Start the ASP.NET Core API and refresh.'))
-  );
-}
+export class AppComponent {}
