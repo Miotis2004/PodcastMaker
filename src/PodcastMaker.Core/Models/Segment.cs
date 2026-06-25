@@ -11,4 +11,5 @@ public class Segment
     public string Purpose { get; set; } = string.Empty;
     public string? Transcript { get; set; }
     public int EstimatedDurationSeconds { get; set; }
+    public System.Collections.Generic.List<string> TalkingPoints { get; set; } = new();
 }

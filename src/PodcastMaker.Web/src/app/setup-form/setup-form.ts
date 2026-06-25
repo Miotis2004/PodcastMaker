@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { Router } from '@angular/router';
 import { ApiService } from '../api.service';
+import { OnInit } from '@angular/core';
 
 @Component({
   selector: 'app-setup-form',
@@ -46,6 +47,9 @@ import { ApiService } from '../api.service';
                   <mat-option value="Casual Podcast">Casual Podcast</mat-option>
                   <mat-option value="Debate">Debate</mat-option>
                   <mat-option value="Educational">Educational</mat-option>
+                  <mat-option value="Technical Deep Dive">Technical Deep Dive</mat-option>
+                  <mat-option value="Storytelling">Storytelling</mat-option>
+                  <mat-option value="Comedy">Comedy</mat-option>
                 </mat-select>
               </mat-form-field>
             </div>
@@ -81,9 +85,11 @@ import { ApiService } from '../api.service';
     .actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem; }
   `]
 })
-export class SetupFormComponent {
+
+export class SetupFormComponent implements OnInit {
   setupForm: FormGroup;
   submitting = false;
+  defaultSpeakers: any[] = [];
 
   constructor(private fb: FormBuilder, private api: ApiService, private router: Router) {
     this.setupForm = this.fb.group({
@@ -95,10 +101,46 @@ export class SetupFormComponent {
     });
   }
 
+  ngOnInit() {
+    this.api.getGlobalSettings().subscribe({
+      next: (settings: any) => {
+        if (settings && settings.defaultSpeakers && settings.defaultSpeakers.length >= 2) {
+          this.defaultSpeakers = settings.defaultSpeakers;
+          this.setupForm.patchValue({
+            hostName: this.defaultSpeakers[0].name,
+            guestName: this.defaultSpeakers[1].name
+          });
+        }
+      },
+      error: (err) => console.error('Failed to load global settings', err)
+    });
+  }
+
   onSubmit() {
     if (this.setupForm.valid) {
       this.submitting = true;
-      this.api.createEpisode(this.setupForm.value).subscribe({
+      const formValue = this.setupForm.value;
+
+      let finalSpeakers = [
+        { name: formValue.hostName, role: 'Host', personality: 'Friendly', speakingStyle: 'Casual' },
+        { name: formValue.guestName, role: 'Guest', personality: 'Knowledgeable', speakingStyle: 'Informative' }
+      ];
+
+      if (this.defaultSpeakers && this.defaultSpeakers.length >= 2) {
+          finalSpeakers = [
+              { ...this.defaultSpeakers[0], name: formValue.hostName },
+              { ...this.defaultSpeakers[1], name: formValue.guestName }
+          ];
+      }
+
+      const requestPayload = {
+        topic: formValue.topic,
+        style: formValue.style,
+        lengthMinutes: formValue.lengthMinutes,
+        speakers: finalSpeakers
+      };
+
+      this.api.createEpisode(requestPayload).subscribe({
         next: (response) => {
           this.router.navigate(['/episode', response.id]);
         },

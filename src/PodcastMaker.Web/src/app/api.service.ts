@@ -2,23 +2,33 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+export interface CreateEpisodeRequest {
+  topic: string;
+  style: string;
+  lengthMinutes: number;
+  speakers: any[];
+}
+
+export interface CreateEpisodeResponse {
+  id: string;
+  message: string;
+}
+
 export interface Episode {
   id: string;
   title: string;
   topic: string;
   style: string;
   lengthMinutes: number;
-  status: string;
   createdAt: string;
+  status: string;
 }
 
 export interface GenerationJob {
   status: string;
   progressPercent: number;
   currentMessage: string;
-  errorDetails: string;
-  startedAt: string;
-  completedAt: string;
+  errorDetails?: string;
 }
 
 export interface DialogueLine {
@@ -36,6 +46,8 @@ export interface Segment {
   sortOrder: number;
   purpose: string;
   transcript: string;
+  estimatedDurationSeconds: number;
+  talkingPoints: string[];
 }
 
 export interface SegmentResponse {
@@ -50,19 +62,6 @@ export interface EpisodeDetailsResponse {
   segments: SegmentResponse[];
 }
 
-export interface CreateEpisodeRequest {
-  topic: string;
-  style: string;
-  lengthMinutes: number;
-  hostName: string;
-  guestName: string;
-}
-
-export interface CreateEpisodeResponse {
-  id: string;
-  message: string;
-}
-
 export interface ExportTranscriptResponse {
   format: string;
   content: string;
@@ -75,7 +74,7 @@ export interface ExportTranscriptResponse {
 export class ApiService {
   private baseUrl = 'http://localhost:5000/api';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   getEpisodes(): Observable<Episode[]> {
     return this.http.get<Episode[]>(`${this.baseUrl}/episodes`);
@@ -89,11 +88,27 @@ export class ApiService {
     return this.http.post<CreateEpisodeResponse>(`${this.baseUrl}/episodes`, request);
   }
 
+  updateSegments(id: string, segments: any[]): Observable<any> {
+    return this.http.put(`${this.baseUrl}/episodes/${id}/segments`, segments);
+  }
+
   generateTranscript(id: string): Observable<any> {
     return this.http.post(`${this.baseUrl}/episodes/${id}/generate-transcript`, {});
   }
 
+  regenerateSegment(id: string, segmentId: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/episodes/${id}/segments/${segmentId}/regenerate`, {});
+  }
+
   exportTranscript(id: string, format: string): Observable<ExportTranscriptResponse> {
     return this.http.get<ExportTranscriptResponse>(`${this.baseUrl}/episodes/${id}/export/transcript?format=${format}`);
+  }
+
+  getGlobalSettings(): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/settings`);
+  }
+
+  updateGlobalSettings(settings: any): Observable<any> {
+    return this.http.put<any>(`${this.baseUrl}/settings`, settings);
   }
 }
