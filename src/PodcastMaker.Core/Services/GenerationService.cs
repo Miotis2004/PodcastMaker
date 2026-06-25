@@ -45,10 +45,10 @@ public class GenerationService : IGenerationService
                 StartedAt = DateTime.UtcNow,
                 CurrentMessage = "Generating outline..."
             },
-            Speakers = new List<Speaker>
+            Speakers = request.Speakers.Count >= 2 ? request.Speakers : new List<Speaker>
             {
-                new Speaker { Name = request.HostName, Role = "Host", Personality = "Friendly", SpeakingStyle = "Casual" },
-                new Speaker { Name = request.GuestName, Role = "Guest", Personality = "Knowledgeable", SpeakingStyle = "Informative" }
+                new Speaker { Name = "Host", Role = "Host", Personality = "Friendly", SpeakingStyle = "Casual" },
+                new Speaker { Name = "Guest", Role = "Guest", Personality = "Knowledgeable", SpeakingStyle = "Informative" }
             }
         };
 
@@ -56,7 +56,10 @@ public class GenerationService : IGenerationService
 
         try
         {
-            var prompt = PromptTemplates.OutlinePrompt(request.Topic, request.Style, request.LengthMinutes, request.HostName, request.GuestName);
+            var host = episodeDetails.Speakers.FirstOrDefault(s => s.Role == "Host") ?? episodeDetails.Speakers[0];
+            var guest = episodeDetails.Speakers.FirstOrDefault(s => s.Role == "Guest") ?? episodeDetails.Speakers[1];
+
+            var prompt = PromptTemplates.OutlinePrompt(request.Topic, request.Style, request.LengthMinutes, host.Name, guest.Name);
             var jsonResponse = await _ollamaClient.GenerateJsonAsync(prompt, cancellationToken: cancellationToken);
 
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -77,6 +80,7 @@ public class GenerationService : IGenerationService
                             Title = seg.Title,
                             Purpose = seg.Purpose,
                             EstimatedDurationSeconds = seg.EstimatedDuration,
+                            TalkingPoints = seg.TalkingPoints ?? new List<string>(),
                             SortOrder = order++
                         }
                     });
@@ -119,8 +123,11 @@ public class GenerationService : IGenerationService
 
         try
         {
-            var host = episodeDetails.Speakers.FirstOrDefault(s => s.Role == "Host")?.Name ?? "Host";
-            var guest = episodeDetails.Speakers.FirstOrDefault(s => s.Role == "Guest")?.Name ?? "Guest";
+            var hostObj = episodeDetails.Speakers.FirstOrDefault(s => s.Role == "Host") ?? new Speaker { Name = "Host" };
+            var guestObj = episodeDetails.Speakers.FirstOrDefault(s => s.Role == "Guest") ?? new Speaker { Name = "Guest" };
+
+            string hostProfile = $"{hostObj.Name} (Role: {hostObj.Role}, Personality: {hostObj.Personality}, Style: {hostObj.SpeakingStyle})";
+            string guestProfile = $"{guestObj.Name} (Role: {guestObj.Role}, Personality: {guestObj.Personality}, Style: {guestObj.SpeakingStyle})";
 
             string previousSummary = "This is the start of the episode.";
 
@@ -136,16 +143,17 @@ public class GenerationService : IGenerationService
                 var prompt = PromptTemplates.DialogueSegmentPrompt(
                     episodeDetails.Episode.Title,
                     episodeDetails.Episode.Topic,
+                    episodeDetails.Episode.Style,
                     segment.Title,
                     segment.Purpose,
                     previousSummary,
-                    host,
-                    guest);
+                    hostProfile,
+                    guestProfile);
 
                 var transcript = await _ollamaClient.GenerateCompletionAsync(prompt, cancellationToken: cancellationToken);
 
                 segment.Transcript = transcript;
-                segmentResponse.DialogueLines = ParseTranscript(segment.Id, transcript, host, guest);
+                segmentResponse.DialogueLines = ParseTranscript(segment.Id, transcript, hostObj.Name, guestObj.Name);
 
                 previousSummary = $"In the previous segment '{segment.Title}', the speakers discussed: {segment.Purpose}";
 
@@ -170,6 +178,76 @@ public class GenerationService : IGenerationService
         }
     }
 
+    public async Task StartSegmentRegenerationAsync(Guid episodeId, Guid segmentId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Starting segment regeneration for episode {EpisodeId}, segment {SegmentId}", episodeId, segmentId);
+
+        var episodeDetails = await _projectStorage.GetEpisodeAsync(episodeId);
+        if (episodeDetails == null)
+        {
+            _logger.LogWarning("Episode {EpisodeId} not found", episodeId);
+            return;
+        }
+
+        var segmentIndex = episodeDetails.Segments.FindIndex(s => s.Segment.Id == segmentId);
+        if (segmentIndex == -1)
+        {
+            _logger.LogWarning("Segment {SegmentId} not found in episode {EpisodeId}", segmentId, episodeId);
+            return;
+        }
+
+        var segmentResponse = episodeDetails.Segments[segmentIndex];
+        var segment = segmentResponse.Segment;
+
+        episodeDetails.Job.Status = "Running";
+        episodeDetails.Job.StartedAt = DateTime.UtcNow;
+        episodeDetails.Job.CurrentMessage = $"Regenerating segment: {segment.Title}";
+        await _projectStorage.SaveEpisodeAsync(episodeDetails);
+
+        try
+        {
+            var hostObj = episodeDetails.Speakers.FirstOrDefault(s => s.Role == "Host") ?? new Speaker { Name = "Host" };
+            var guestObj = episodeDetails.Speakers.FirstOrDefault(s => s.Role == "Guest") ?? new Speaker { Name = "Guest" };
+
+            string hostProfile = $"{hostObj.Name} (Role: {hostObj.Role}, Personality: {hostObj.Personality}, Style: {hostObj.SpeakingStyle})";
+            string guestProfile = $"{guestObj.Name} (Role: {guestObj.Role}, Personality: {guestObj.Personality}, Style: {guestObj.SpeakingStyle})";
+
+            string previousSummary = "This is the start of the episode.";
+            if (segmentIndex > 0)
+            {
+                var prevSegment = episodeDetails.Segments[segmentIndex - 1].Segment;
+                previousSummary = $"In the previous segment '{prevSegment.Title}', the speakers discussed: {prevSegment.Purpose}";
+            }
+
+            var prompt = PromptTemplates.DialogueSegmentPrompt(
+                episodeDetails.Episode.Title,
+                episodeDetails.Episode.Topic,
+                episodeDetails.Episode.Style,
+                segment.Title,
+                segment.Purpose,
+                previousSummary,
+                hostProfile,
+                guestProfile);
+
+            var transcript = await _ollamaClient.GenerateCompletionAsync(prompt, cancellationToken: cancellationToken);
+
+            segment.Transcript = transcript;
+            segmentResponse.DialogueLines = ParseTranscript(segment.Id, transcript, hostObj.Name, guestObj.Name);
+
+            episodeDetails.Job.Status = "Completed";
+            episodeDetails.Job.CompletedAt = DateTime.UtcNow;
+            episodeDetails.Job.CurrentMessage = "Segment regenerated successfully";
+            await _projectStorage.SaveEpisodeAsync(episodeDetails);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to regenerate segment {SegmentId} for episode {EpisodeId}", segmentId, episodeId);
+            episodeDetails.Job.Status = "Failed";
+            episodeDetails.Job.ErrorDetails = ex.Message;
+            await _projectStorage.SaveEpisodeAsync(episodeDetails);
+        }
+    }
+
     private List<DialogueLine> ParseTranscript(Guid segmentId, string transcript, string hostName, string guestName)
     {
         var lines = new List<DialogueLine>();
@@ -185,7 +263,6 @@ public class GenerationService : IGenerationService
             if (colonIndex > 0)
             {
                 var speaker = trimmedLine.Substring(0, colonIndex).Trim();
-                // Strip asterisks if AI generated something like **Host**:
                 speaker = speaker.Replace("*", "");
 
                 var text = trimmedLine.Substring(colonIndex + 1).Trim();
@@ -200,7 +277,6 @@ public class GenerationService : IGenerationService
             }
             else if (lines.Count > 0)
             {
-                // Append to previous line if no colon
                 lines.Last().Text += " " + trimmedLine;
             }
         }

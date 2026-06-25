@@ -9,4 +9,5 @@ public interface IGenerationService
 {
     Task StartOutlineGenerationAsync(Guid episodeId, CreateEpisodeRequest request, CancellationToken cancellationToken = default);
     Task StartTranscriptGenerationAsync(Guid episodeId, CancellationToken cancellationToken = default);
+    Task StartSegmentRegenerationAsync(Guid episodeId, Guid segmentId, CancellationToken cancellationToken = default);
 }

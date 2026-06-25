@@ -17,7 +17,14 @@ public static class InfrastructureServiceCollectionExtensions
             client.BaseAddress = new System.Uri(url);
         });
 
-        services.AddHttpClient<IOllamaClient, OllamaClient>();
+        if (configuration["PodcastMaker:OllamaUrl"] == "none")
+        {
+            services.AddSingleton<IOllamaClient, FakeOllamaClient>();
+        }
+        else
+        {
+            services.AddHttpClient<IOllamaClient, OllamaClient>();
+        }
 
         services.AddSingleton<IProjectStorage, ProjectStorageService>();
 

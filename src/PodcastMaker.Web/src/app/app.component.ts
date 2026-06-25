@@ -12,6 +12,7 @@ import { MatButtonModule } from '@angular/material/button';
       <span>PodcastMaker Studio</span>
       <span class="spacer"></span>
       <button mat-button routerLink="/projects">Library</button>
+      <button mat-button routerLink="/settings">Settings</button>
       <button mat-raised-button color="accent" routerLink="/new">New Episode</button>
     </mat-toolbar>
     <main class="content-wrapper">
